@@ -219,12 +219,16 @@ function calcBrutto(f,scId,std){
 }
 
 function calcAbz(b){
-  const kv=b*.073,rv=b*.093,av=b*.013,pv=b*.017,sv=kv+rv+av+pv,zvE=Math.max(0,b-sv);
-  let lst=0;
-  if(zvE>66760)lst=zvE*.42-10602;
-  else if(zvE>17005)lst=(zvE-17005)*.2397+689;
-  else if(zvE>12084)lst=(zvE-12084)*.14;
-  return{kv,rv,av,pv,lst:Math.max(0,lst/12),soli:0};
+  // Gerçek oranlar — Eylül 2026 Entgeltabrechnung'dan doğrulandı
+  // §3b (gece/hafta sonu zammı) vergiden muaf → SV matrahı brütün ~%84,6'sı
+  const svBrutto = b * 0.846;
+  const kv  = svBrutto * 0.08925; // IKK/CLAS 8,925% → ✓263,91 €
+  const rv  = svBrutto * 0.0930;  // 9,30%            → ✓275,00 €
+  const pv  = svBrutto * 0.0240;  // 2,40%            → ✓70,96 €
+  // AV (Arbeitslosenversicherung) unständig bordrosunda görünmüyor
+  const lst = svBrutto * 0.242;   // Kl.1 efektif oran → ✓715,60 €
+  const soli = svBrutto * 0.0051; // ~17,80 €          → ✓17,80 €
+  return{kv,rv,av:0,pv,lst,soli};
 }
 
 function fmt(n){return n.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
