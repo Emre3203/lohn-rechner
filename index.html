@@ -191,9 +191,9 @@ const DEFAULT_FIRMEN=[
   {id:'SWOP',name:'SWOP',color:'#ffd166',fahrgeld:3.68,zulageA:21.92,schichten:{
     // Gerçek bordrodan: Sch1=22.79, Sch2=26.16, Sch3=28.96 €/Std
     // Zulage AA: Sch1&2=32.14, Sch3=40.98
-    1:{stundenSatz:22.79,zulageAA:32.14,schmutz:0,ubSchwelle:6,ubZam:2.00},
-    2:{stundenSatz:26.16,zulageAA:32.14,schmutz:0,ubSchwelle:6,ubZam:2.00},
-    3:{stundenSatz:28.96,zulageAA:40.98,schmutz:0,ubSchwelle:6,ubZam:2.00},
+    1:{stundenSatz:22.79,zulageAA:32.14,schmutz:0,ubSchwelle:null,ubZam:2.00,weSchwelle:6},
+    2:{stundenSatz:26.16,zulageAA:32.14,schmutz:0,ubSchwelle:null,ubZam:2.00,weSchwelle:6},
+    3:{stundenSatz:28.96,zulageAA:40.98,schmutz:0,ubSchwelle:null,ubZam:2.00,weSchwelle:6},
   }},
 ];
 
@@ -210,10 +210,13 @@ function getCfg(f,scId){
   return(f.schichten&&f.schichten[scId])||{stundenSatz:0,zulageAA:32.14,schmutz:0,ubSchwelle:null,ubZam:null};
 }
 
-function calcBrutto(f,scId,std){
+function calcBrutto(f,scId,std,datum){
   const c=getCfg(f,scId);
+  const wknd=datum?isWeekend(datum):false;
+  // Überstunde eşiği: hafta sonu → weSchwelle, hafta içi → ubSchwelle
+  const schwelle=wknd?(c.weSchwelle||c.ubSchwelle):c.ubSchwelle;
   let ns=std,us=0;
-  if(c.ubSchwelle&&std>c.ubSchwelle){ns=c.ubSchwelle;us=std-c.ubSchwelle;}
+  if(schwelle&&std>schwelle){ns=schwelle;us=std-schwelle;}
   return c.stundenSatz*ns+(c.ubZam?c.stundenSatz*us*c.ubZam:c.stundenSatz*us)
         +(c.zulageAA||0)+(c.schmutz||0)+(f.fahrgeld||0)+(f.zulageA||0);
 }
@@ -421,10 +424,13 @@ function updateUbPrev(fId,scId){
   const c=getCfg(f,scId);
   const prev=document.getElementById(`ubp-${fId}-${scId}`);
   if(!prev)return;
+  const datum=document.getElementById(`d-${fId}-${scId}`)?.value||'';
   const std=parseFloat(document.getElementById(`s-${fId}-${scId}`).value)||0;
-  if(c.ubSchwelle&&std>c.ubSchwelle){
+  const wknd=isWeekend(datum);
+  const schwelle=wknd?(c.weSchwelle||c.ubSchwelle):c.ubSchwelle;
+  if(schwelle&&std>schwelle){
     prev.style.display='block';
-    prev.textContent=`⏱ ${c.ubSchwelle}h normal + ${(std-c.ubSchwelle).toFixed(2)}h überstunde `
+    prev.textContent=`⏱ ${schwelle}h normal + ${(std-schwelle).toFixed(2)}h überstunde `
       +(c.ubZam?`(×${c.ubZam}, %${Math.round((c.ubZam-1)*100)} zam)`:'(oran girilmedi)');
   }else{prev.style.display='none';}
 }
@@ -436,8 +442,10 @@ function addSchicht(fId,scId){
   const datum=document.getElementById(`d-${fId}-${scId}`).value;
   const std=parseFloat(document.getElementById(`s-${fId}-${scId}`).value);
   if(!datum||isNaN(std)){alert('Tarih ve saat girin.');return;}
-  const brutto=calcBrutto(f,scId,std);
-  const ubStd=(c.ubSchwelle&&std>c.ubSchwelle)?std-c.ubSchwelle:0;
+  const wknd=isWeekend(datum);
+  const schwelle=wknd?(c.weSchwelle||c.ubSchwelle):c.ubSchwelle;
+  const brutto=calcBrutto(f,scId,std,datum);
+  const ubStd=(schwelle&&std>schwelle)?std-schwelle:0;
   schichten.push({id:Date.now(),firmaId:fId,datum,schicht:scId,std,brutto,ubStd});
   saveSLS();renderFirmaPage(fId);renderHome();
 }
